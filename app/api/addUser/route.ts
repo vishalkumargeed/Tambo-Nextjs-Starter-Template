@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
@@ -43,31 +44,35 @@ export async function POST(request: Request) {
     }
 
     // Create the user and post in a transaction
-    const result = await prisma.$transaction(async (tx) => {
-      // Create the user
-      const user = await tx.user.create({
-        data: {
-          email: email.trim(),
-          name: name && name.trim() ? name.trim() : null,
-        },
-      });
-
-      // Create the post if post data is provided
-      let createdPost = null;
-      if (post) {
-        createdPost = await tx.post.create({
+    const result = await prisma.$transaction(
+      async (tx: Prisma.TransactionClient) => {
+        // Create the user
+        const user = await tx.user.create({
           data: {
-            title: post.title.trim(),
-            content:
-              post.content && post.content.trim() ? post.content.trim() : null,
-            published: post.published === true,
-            authorId: user.id,
+            email: email.trim(),
+            name: name && name.trim() ? name.trim() : null,
           },
         });
-      }
 
-      return { user, post: createdPost };
-    });
+        // Create the post if post data is provided
+        let createdPost = null;
+        if (post) {
+          createdPost = await tx.post.create({
+            data: {
+              title: post.title.trim(),
+              content:
+                post.content && post.content.trim()
+                  ? post.content.trim()
+                  : null,
+              published: post.published === true,
+              authorId: user.id,
+            },
+          });
+        }
+
+        return { user, post: createdPost };
+      },
+    );
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
